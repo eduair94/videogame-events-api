@@ -10,7 +10,11 @@
     "sync": "ts-node src/scripts/syncData.ts",
     "enrich": "ts-node src/scripts/enrich.ts",
     "lint": "eslint src/**/*.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "vercel-build": "tsc"
+  },
+  "engines": {
+    "node": ">=18.x"
   },
   "keywords": [
     "indie",
@@ -22,6 +26,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@vercel/node": "^3.2.29",
     "cheerio": "^1.1.2",
     "cors": "^2.8.5",
     "csv-parse": "^5.5.6",
