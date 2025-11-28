@@ -1,8 +1,8 @@
-import express, { Application } from 'express';
 import cors from 'cors';
+import express, { Application } from 'express';
 import swaggerUi from 'swagger-ui-express';
-import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware';
+import routes from './routes';
 import { swaggerSpec } from './swagger';
 
 export function createApp(): Application {
