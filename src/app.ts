@@ -1,7 +1,9 @@
 import express, { Application } from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { errorHandler, notFoundHandler } from './middleware';
+import { swaggerSpec } from './swagger';
 
 export function createApp(): Application {
   const app = express();
@@ -19,6 +21,18 @@ export function createApp(): Application {
     });
   }
 
+  // Swagger Documentation
+  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'Indie Festivals API Documentation',
+  }));
+
+  // OpenAPI JSON endpoint (for AI/programmatic access)
+  app.get('/openapi.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+
   // API Routes
   app.use('/api', routes);
 
@@ -28,6 +42,11 @@ export function createApp(): Application {
       name: 'Indie Festivals API',
       version: '1.0.0',
       description: 'API for showcasing indie game festival information',
+      documentation: {
+        swagger_ui: '/docs',
+        openapi_json: '/openapi.json',
+        ai_note: 'For AI/LLM integration, fetch /openapi.json for the complete OpenAPI 3.0 specification with semantic descriptions'
+      },
       endpoints: {
         health: 'GET /api/health',
         festivals: {
@@ -48,6 +67,11 @@ export function createApp(): Application {
           trigger: 'POST /api/sync',
           history: 'GET /api/sync/history',
           last: 'GET /api/sync/last',
+        },
+        enrichment: {
+          trigger: 'POST /api/enrich',
+          stats: 'GET /api/enrich/stats',
+          steam: 'POST /api/enrich/steam',
         },
       },
     });

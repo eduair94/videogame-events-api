@@ -101,6 +101,8 @@ curl https://YOUR-PROJECT.vercel.app/api/festivals/stats
 
 Or simply visit these URLs in your browser:
 - `https://YOUR-PROJECT.vercel.app/` - API info
+- `https://YOUR-PROJECT.vercel.app/docs` - **Swagger UI Documentation**
+- `https://YOUR-PROJECT.vercel.app/openapi.json` - OpenAPI 3.0 JSON spec (for AI/LLM integration)
 - `https://YOUR-PROJECT.vercel.app/api/festivals` - List festivals
 - `https://YOUR-PROJECT.vercel.app/api/festivals/stats` - Statistics
 
@@ -119,11 +121,30 @@ This populates your MongoDB Atlas database with festival data.
 
 ---
 
+## API Documentation
+
+### Swagger UI
+Interactive API documentation is available at `/docs`. This provides:
+- Complete endpoint documentation
+- Request/response examples
+- Try-it-out functionality
+
+### OpenAPI JSON (for AI/LLM)
+The raw OpenAPI 3.0 specification is available at `/openapi.json`. 
+This is optimized for AI consumption with:
+- Semantic descriptions for each endpoint
+- AI context notes explaining data relationships
+- Clear schema definitions with examples
+
+---
+
 ## Available API Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/` | GET | API information |
+| `/docs` | GET | Swagger UI documentation |
+| `/openapi.json` | GET | OpenAPI 3.0 specification |
 | `/api/health` | GET | Health check |
 | `/api/festivals` | GET | List all festivals |
 | `/api/festivals/stats` | GET | Festival statistics |
