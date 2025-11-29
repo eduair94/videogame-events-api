@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { syncAllData } from '../services';
+import { syncAllData, syncFromGoogleSheets } from '../services';
 import { SyncLog } from '../models';
 
 export async function triggerSync(
@@ -66,6 +66,31 @@ export async function getLastSync(
     res.json({
       success: true,
       data: lastSync,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Trigger a sync from Google Sheets (Vercel-compatible, no filesystem)
+ * This fetches the latest data from the Google Sheets and syncs it to MongoDB in-memory
+ */
+export async function triggerGoogleSheetsSync(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    console.log('🔄 Starting Google Sheets sync...');
+    const result = await syncFromGoogleSheets();
+
+    res.json({
+      success: result.errors.length === 0,
+      message: result.errors.length === 0 
+        ? 'Google Sheets data synchronized successfully' 
+        : 'Google Sheets data synchronized with some errors',
+      data: result,
     });
   } catch (error) {
     next(error);

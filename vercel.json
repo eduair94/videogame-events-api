@@ -4,12 +4,26 @@
     {
       "src": "api/index.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "api/cron/sync-sheets.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/cron/sync-sheets",
+      "dest": "/api/cron/sync-sheets.ts"
+    },
+    {
       "src": "/(.*)",
       "dest": "/api/index.ts"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/sync-sheets",
+      "schedule": "0 */6 * * *"
     }
   ],
   "env": {

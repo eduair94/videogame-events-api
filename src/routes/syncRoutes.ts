@@ -1,13 +1,19 @@
 import { Router } from 'express';
-import { triggerSync, getSyncHistory, getLastSync } from '../controllers';
+import { triggerSync, getSyncHistory, getLastSync, triggerGoogleSheetsSync } from '../controllers';
 
 const router = Router();
 
 /**
  * @route   POST /api/sync
- * @desc    Trigger data synchronization from CSV files
+ * @desc    Trigger data synchronization from CSV files (requires filesystem)
  */
 router.post('/', triggerSync);
+
+/**
+ * @route   POST /api/sync/sheets
+ * @desc    Trigger data synchronization from Google Sheets (Vercel-compatible, no filesystem)
+ */
+router.post('/sheets', triggerGoogleSheetsSync);
 
 /**
  * @route   GET /api/sync/history

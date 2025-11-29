@@ -490,7 +490,7 @@ Each record tracks whether a game has been featured, registration dates, and eve
     '/api/sync': {
       post: {
         tags: ['Sync'],
-        summary: 'Trigger data synchronization',
+        summary: 'Trigger data synchronization from CSV files',
         description: `
 Triggers a full data synchronization from CSV source files.
 
@@ -501,7 +501,7 @@ Triggers a full data synchronization from CSV source files.
 4. Logs the sync operation with statistics
 
 Note: In production (Vercel), CSV files are not available. 
-Run sync locally before deploying to populate the database.
+Use the /api/sync/sheets endpoint instead for Vercel deployments.
         `,
         operationId: 'triggerSync',
         responses: {
@@ -510,6 +510,59 @@ Run sync locally before deploying to populate the database.
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/SyncResult' }
+              }
+            }
+          },
+          '500': {
+            description: 'Sync failed',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
+    },
+    '/api/sync/sheets': {
+      post: {
+        tags: ['Sync'],
+        summary: 'Trigger sync from Google Sheets (Vercel-compatible)',
+        description: `
+Triggers data synchronization directly from Google Sheets (no filesystem required).
+
+**AI Context**: This endpoint:
+1. Fetches CSV data directly from Google Sheets export URLs (in-memory)
+2. Parses three sheets: Curated festivals, On-the-fence festivals, Steam tracker
+3. Upserts records into MongoDB (updates existing, creates new)
+4. Returns sync statistics for each sheet
+
+This is the recommended sync method for Vercel deployments as it doesn't require filesystem access.
+        `,
+        operationId: 'triggerGoogleSheetsSync',
+        responses: {
+          '200': {
+            description: 'Google Sheets sync completed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: { $ref: '#/components/schemas/GoogleSheetsSyncResult' }
+                  }
+                },
+                example: {
+                  success: true,
+                  message: 'Google Sheets data synchronized successfully',
+                  data: {
+                    curatedFestivals: { upserted: 210, errors: 0 },
+                    onTheFenceFestivals: { upserted: 6, errors: 0 },
+                    steamFeatures: { upserted: 90, errors: 0 },
+                    errors: []
+                  }
+                }
               }
             }
           },
@@ -939,6 +992,38 @@ It may not always be accurate and should be used as supplementary information.
                 items: { type: 'string' }
               }
             }
+          }
+        }
+      },
+      GoogleSheetsSyncResult: {
+        type: 'object',
+        description: 'Result of syncing data from Google Sheets (in-memory, Vercel-compatible)',
+        properties: {
+          curatedFestivals: {
+            type: 'object',
+            properties: {
+              upserted: { type: 'integer', description: 'Number of festivals upserted' },
+              errors: { type: 'integer', description: 'Number of errors' }
+            }
+          },
+          onTheFenceFestivals: {
+            type: 'object',
+            properties: {
+              upserted: { type: 'integer', description: 'Number of festivals upserted' },
+              errors: { type: 'integer', description: 'Number of errors' }
+            }
+          },
+          steamFeatures: {
+            type: 'object',
+            properties: {
+              upserted: { type: 'integer', description: 'Number of Steam features upserted' },
+              errors: { type: 'integer', description: 'Number of errors' }
+            }
+          },
+          errors: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'List of error messages if any'
           }
         }
       },
