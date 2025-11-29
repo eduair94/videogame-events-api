@@ -1,6 +1,6 @@
 import { createApp } from './app';
-import { connectDatabase } from './database';
 import { config } from './config';
+import { connectDatabase } from './database';
 import { syncAllData } from './services';
 
 async function bootstrap(): Promise<void> {

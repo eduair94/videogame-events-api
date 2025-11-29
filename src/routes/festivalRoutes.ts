@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import {
-  getAllFestivals,
-  getFestivalById,
-  getOpenSubmissions,
-  getUpcomingDeadlines,
-  getFestivalTypes,
-  getFestivalStats,
+    getAllFestivals,
+    getFestivalById,
+    getFestivalStats,
+    getFestivalTypes,
+    getOpenSubmissions,
+    getUpcomingDeadlines,
 } from '../controllers';
 
 const router = Router();

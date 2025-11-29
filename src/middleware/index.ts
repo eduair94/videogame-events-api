@@ -1,1 +1,2 @@
-export { errorHandler, notFoundHandler, AppError } from './errorHandler';
+export { AppError, errorHandler, notFoundHandler } from './errorHandler';
+

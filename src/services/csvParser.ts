@@ -1,7 +1,7 @@
-import fs from 'fs';
 import { parse } from 'csv-parse/sync';
-import { Festival, SteamFeature, SyncLog } from '../models';
+import fs from 'fs';
 import { csvFiles } from '../config';
+import { Festival, SteamFeature, SyncLog } from '../models';
 
 function parseBoolean(value: string): boolean {
   return value?.toUpperCase() === 'TRUE';

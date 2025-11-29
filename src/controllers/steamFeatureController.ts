@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { SteamFeature, ISteamFeature } from '../models';
+import { NextFunction, Request, Response } from 'express';
+import { ISteamFeature, SteamFeature } from '../models';
 
 export async function getAllSteamFeatures(
   req: Request,

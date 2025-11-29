@@ -1,8 +1,8 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
+import enrichmentRoutes from './enrichmentRoutes';
 import festivalRoutes from './festivalRoutes';
 import steamFeatureRoutes from './steamFeatureRoutes';
 import syncRoutes from './syncRoutes';
-import enrichmentRoutes from './enrichmentRoutes';
 
 const router = Router();
 

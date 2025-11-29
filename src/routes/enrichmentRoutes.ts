@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getStats, startEnrichment, enrichFromSteam } from '../controllers/enrichmentController';
+import { enrichFromSteam, getStats, startEnrichment } from '../controllers/enrichmentController';
 
 const router = Router();
 

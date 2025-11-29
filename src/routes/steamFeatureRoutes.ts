@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import {
-  getAllSteamFeatures,
-  getSteamFeatureByFestival,
-  getFeaturedFestivals,
-  getSteamFeatureStats,
+    getAllSteamFeatures,
+    getFeaturedFestivals,
+    getSteamFeatureByFestival,
+    getSteamFeatureStats,
 } from '../controllers';
 
 const router = Router();

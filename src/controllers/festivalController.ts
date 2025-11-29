@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from 'express';
-import { Festival, IFestival } from '../models';
+import { NextFunction, Request, Response } from 'express';
+import { Festival } from '../models';
 
 interface FestivalQuery {
   category?: 'curated' | 'on-the-fence';

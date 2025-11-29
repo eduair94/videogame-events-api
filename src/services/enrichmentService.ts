@@ -1,5 +1,5 @@
-import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
+import fetch from 'node-fetch';
 import { Festival, IFestival } from '../models';
 
 interface EnrichmentResult {
