@@ -8,6 +8,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "sync": "ts-node src/scripts/syncData.ts",
+    "sync:sheets": "ts-node src/scripts/syncGoogleSheets.ts",
+    "sync:sheets:csv": "ts-node src/scripts/syncGoogleSheets.ts --csv-only",
     "enrich": "ts-node src/scripts/enrich.ts",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit",
@@ -35,6 +37,7 @@
     "express": "^4.21.0",
     "mongoose": "^8.7.0",
     "node-fetch": "^2.7.0",
+    "public-google-sheets-parser": "^1.5.4",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
