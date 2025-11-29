@@ -106,6 +106,31 @@ export async function getFestivalById(
   }
 }
 
+export async function getFestivalBySlug(
+  req: Request<{ slug: string }>,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const festival = await Festival.findOne({ slug: req.params.slug });
+
+    if (!festival) {
+      res.status(404).json({
+        success: false,
+        error: 'Festival not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: festival,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getOpenSubmissions(
   req: Request,
   res: Response,

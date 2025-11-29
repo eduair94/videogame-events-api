@@ -11,6 +11,10 @@
     "sync:sheets": "ts-node src/scripts/syncGoogleSheets.ts",
     "sync:sheets:csv": "ts-node src/scripts/syncGoogleSheets.ts --csv-only",
     "enrich": "ts-node src/scripts/enrich.ts",
+    "enrich:ai": "ts-node src/scripts/aiEnrichFestivals.ts",
+    "enrich:ai:force": "ts-node src/scripts/aiEnrichFestivals.ts --force",
+    "enrich:ai:retry": "ts-node src/scripts/aiEnrichFestivals.ts --retry-failed",
+    "enrich:slugs": "ts-node src/scripts/aiEnrichFestivals.ts --slugs-only",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit",
     "vercel-build": "tsc"
@@ -28,6 +32,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@types/swagger-ui-express": "^4.1.8",
     "@vercel/node": "^3.2.29",
     "cheerio": "^1.1.2",

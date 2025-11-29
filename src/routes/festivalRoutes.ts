@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
     getAllFestivals,
     getFestivalById,
+    getFestivalBySlug,
     getFestivalStats,
     getFestivalTypes,
     getOpenSubmissions,
@@ -48,6 +49,12 @@ router.get('/upcoming', getUpcomingDeadlines);
  * @desc    Get festivals with TBA (To Be Announced) deadlines
  */
 router.get('/tba', getTbaFestivals);
+
+/**
+ * @route   GET /api/festivals/slug/:slug
+ * @desc    Get a single festival by slug
+ */
+router.get('/slug/:slug', getFestivalBySlug);
 
 /**
  * @route   GET /api/festivals/:id

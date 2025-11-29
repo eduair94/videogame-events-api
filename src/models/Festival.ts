@@ -13,8 +13,44 @@ export interface IFestivalEnrichment {
   lastCheckedAt: Date | null;
 }
 
+export interface IAIEnrichment {
+  entity: string | null;
+  type: string | null;
+  status: string | null;
+  overview: {
+    description: string | null;
+    primaryPlatform: string | null;
+    organizers: string[];
+    objective: string | null;
+    bannerImageUrl: string | null;
+  };
+  eventDetails: {
+    currentEdition: string | null;
+    typicalDuration: string | null;
+    offerings: string[];
+  };
+  keyParticipants: {
+    notableStudios: string[];
+    featuredGames: {
+      title: string;
+      developer: string;
+      genre: string;
+      imageUrl: string | null;
+      steamUrl: string | null;
+    }[];
+  };
+  industryContext: {
+    location: string | null;
+    significance: string | null;
+  };
+  version: number;
+  enrichedAt: Date | null;
+  enrichmentStatus: 'pending' | 'enriched' | 'failed' | 'skipped';
+}
+
 export interface IFestival extends Document {
   name: string;
+  slug: string;
   type: string;
   when: string;
   deadline: string | null;
@@ -29,6 +65,7 @@ export interface IFestival extends Document {
   category: 'curated' | 'on-the-fence';
   // Enrichment fields
   enrichment: IFestivalEnrichment;
+  aiEnrichment: IAIEnrichment;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,11 +90,74 @@ const EnrichmentSchema = new Schema<IFestivalEnrichment>(
   { _id: false }
 );
 
+const FeaturedGameSchema = new Schema(
+  {
+    title: { type: String, default: '' },
+    developer: { type: String, default: '' },
+    genre: { type: String, default: '' },
+    imageUrl: { type: String, default: null },
+    steamUrl: { type: String, default: null },
+  },
+  { _id: false }
+);
+
+const AIEnrichmentSchema = new Schema<IAIEnrichment>(
+  {
+    entity: { type: String, default: null },
+    type: { type: String, default: null },
+    status: { type: String, default: null },
+    overview: {
+      description: { type: String, default: null },
+      primaryPlatform: { type: String, default: null },
+      organizers: [{ type: String }],
+      objective: { type: String, default: null },
+      bannerImageUrl: { type: String, default: null },
+    },
+    eventDetails: {
+      currentEdition: { type: String, default: null },
+      typicalDuration: { type: String, default: null },
+      offerings: [{ type: String }],
+    },
+    keyParticipants: {
+      notableStudios: [{ type: String }],
+      featuredGames: [FeaturedGameSchema],
+    },
+    industryContext: {
+      location: { type: String, default: null },
+      significance: { type: String, default: null },
+    },
+    version: { type: Number, default: 0 },
+    enrichedAt: { type: Date, default: null },
+    enrichmentStatus: {
+      type: String,
+      enum: ['pending', 'enriched', 'failed', 'skipped'],
+      default: 'pending',
+    },
+  },
+  { _id: false }
+);
+
+// Helper function to generate slug from name
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+}
+
 const FestivalSchema = new Schema<IFestival>(
   {
     name: {
       type: String,
       required: true,
+      index: true,
+    },
+    slug: {
+      type: String,
+      unique: true,
       index: true,
     },
     type: {
@@ -126,15 +226,73 @@ const FestivalSchema = new Schema<IFestival>(
         lastCheckedAt: null,
       }),
     },
+    aiEnrichment: {
+      type: AIEnrichmentSchema,
+      default: () => ({
+        entity: null,
+        type: null,
+        status: null,
+        overview: {
+          description: null,
+          primaryPlatform: null,
+          organizers: [],
+          objective: null,
+          bannerImageUrl: null,
+        },
+        eventDetails: {
+          currentEdition: null,
+          typicalDuration: null,
+          offerings: [],
+        },
+        keyParticipants: {
+          notableStudios: [],
+          featuredGames: [],
+        },
+        industryContext: {
+          location: null,
+          significance: null,
+        },
+        version: 0,
+        enrichedAt: null,
+        enrichmentStatus: 'pending',
+      }),
+    },
   },
   {
     timestamps: true,
   }
 );
 
+// Pre-save hook to generate slug from name
+FestivalSchema.pre('save', async function (next) {
+  if (this.isModified('name') || !this.slug) {
+    let baseSlug = generateSlug(this.name);
+    let slug = baseSlug;
+    let counter = 1;
+
+    // Check for duplicate slugs and append counter if needed
+    while (true) {
+      const existing = await mongoose.models.Festival.findOne({ 
+        slug, 
+        _id: { $ne: this._id } 
+      });
+      if (!existing) break;
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    this.slug = slug;
+  }
+  next();
+});
+
 // Compound index for common queries
 FestivalSchema.index({ category: 1, type: 1 });
 FestivalSchema.index({ deadline: 1 });
 FestivalSchema.index({ submissionOpen: 1 });
+FestivalSchema.index({ 'aiEnrichment.enrichmentStatus': 1 });
 
 export const Festival = mongoose.model<IFestival>('Festival', FestivalSchema);
+
+// Export the generateSlug function for use in scripts
+export { generateSlug };

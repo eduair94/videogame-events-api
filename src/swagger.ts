@@ -386,6 +386,47 @@ Useful for tracking festivals that may open submissions in the future.
         }
       }
     },
+    '/api/festivals/slug/{slug}': {
+      get: {
+        tags: ['Festivals'],
+        summary: 'Get festival by slug',
+        description: 'Retrieves a single festival by its URL-friendly slug.',
+        operationId: 'getFestivalBySlug',
+        parameters: [
+          {
+            name: 'slug',
+            in: 'path',
+            required: true,
+            description: 'URL-friendly slug of the festival (e.g., "adventurex-2025")',
+            schema: { type: 'string' }
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Festival details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { $ref: '#/components/schemas/Festival' }
+                  }
+                }
+              }
+            }
+          },
+          '404': {
+            description: 'Festival not found',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/Error' }
+              }
+            }
+          }
+        }
+      }
+    },
     '/api/festivals/{id}': {
       get: {
         tags: ['Festivals'],
