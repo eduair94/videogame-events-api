@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { connectDatabase } from '../../src/database';
-import { syncFromGoogleSheets } from '../../src/services/googleSheetsSync';
+import { connectDatabase } from '../src/database';
+import { syncFromGoogleSheets } from '../src/services/googleSheetsSync';
 
 // Cache the database connection
 let isConnected = false;

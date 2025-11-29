@@ -80,7 +80,7 @@ Vercel will automatically detect the cron configuration in `vercel.json`.
 1. Go to your project in Vercel
 2. Click **Settings** → **Crons**
 3. You should see your cron job listed:
-   - **Path**: `/api/cron/sync-sheets`
+   - **Path**: `/api/cron`
    - **Schedule**: `0 */6 * * *` (Every 6 hours)
 
 ### Manual Test:
@@ -88,7 +88,7 @@ Vercel will automatically detect the cron configuration in `vercel.json`.
 You can manually trigger the cron job using curl:
 
 ```bash
-curl -X GET https://YOUR-PROJECT.vercel.app/api/cron/sync-sheets \
+curl -X GET https://YOUR-PROJECT.vercel.app/api/cron \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
