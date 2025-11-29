@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { triggerSync, getSyncHistory, getLastSync, triggerGoogleSheetsSync } from '../controllers';
+import { getLastSync, getSyncHistory, triggerGoogleSheetsSync, triggerSync } from '../controllers';
 
 const router = Router();
 

@@ -1,2 +1,3 @@
-export { syncAllData, parseCuratedCSV, parseOnTheFenceCSV, parseSteamTrackerCSV } from './csvParser';
+export { parseCuratedCSV, parseOnTheFenceCSV, parseSteamTrackerCSV, syncAllData } from './csvParser';
 export { syncFromGoogleSheets } from './googleSheetsSync';
+

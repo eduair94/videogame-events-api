@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { syncAllData, syncFromGoogleSheets } from '../services';
+import { NextFunction, Request, Response } from 'express';
 import { SyncLog } from '../models';
+import { syncAllData, syncFromGoogleSheets } from '../services';
 
 export async function triggerSync(
   req: Request,
