@@ -5,6 +5,7 @@ import {
     getFestivalStats,
     getFestivalTypes,
     getOpenSubmissions,
+    getTbaFestivals,
     getUpcomingDeadlines,
 } from '../controllers';
 
@@ -41,6 +42,12 @@ router.get('/open', getOpenSubmissions);
  * @query   days (default: 30)
  */
 router.get('/upcoming', getUpcomingDeadlines);
+
+/**
+ * @route   GET /api/festivals/tba
+ * @desc    Get festivals with TBA (To Be Announced) deadlines
+ */
+router.get('/tba', getTbaFestivals);
 
 /**
  * @route   GET /api/festivals/:id

@@ -305,26 +305,68 @@ Useful for developers looking for festivals to submit their games to.
     '/api/festivals/upcoming': {
       get: {
         tags: ['Festivals'],
-        summary: 'Get upcoming festivals',
+        summary: 'Get festivals with upcoming deadlines',
         description: `
-Returns festivals with upcoming event dates.
+Returns festivals with upcoming submission deadlines.
 
-**AI Context**: Filters festivals where event start date is in the future.
-Sorted by event start date (soonest first).
-Useful for planning and scheduling.
+**AI Context**: Filters festivals where submission deadline is within the specified days.
+Excludes festivals with TBA or empty deadlines.
+Sorted by days to submit (soonest first).
+Useful for finding festivals to submit to soon.
         `,
         operationId: 'getUpcomingFestivals',
         parameters: [
           {
             name: 'days',
             in: 'query',
-            description: 'Number of days to look ahead (default: 90)',
-            schema: { type: 'integer', default: 90 }
+            description: 'Number of days to look ahead (default: 30)',
+            schema: { type: 'integer', default: 30 }
           }
         ],
         responses: {
           '200': {
             description: 'Upcoming festivals',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    count: { type: 'integer' },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/Festival' }
+                    },
+                    period: {
+                      type: 'object',
+                      properties: {
+                        from: { type: 'string', format: 'date' },
+                        to: { type: 'string', format: 'date' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    '/api/festivals/tba': {
+      get: {
+        tags: ['Festivals'],
+        summary: 'Get festivals with TBA deadlines',
+        description: `
+Returns festivals where the submission deadline is "TBA" (To Be Announced).
+
+**AI Context**: These festivals have not yet announced their submission deadlines.
+Sorted alphabetically by name.
+Useful for tracking festivals that may open submissions in the future.
+        `,
+        operationId: 'getTbaFestivals',
+        responses: {
+          '200': {
+            description: 'Festivals with TBA deadlines',
             content: {
               'application/json': {
                 schema: {

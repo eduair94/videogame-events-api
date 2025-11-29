@@ -138,7 +138,7 @@ export async function getUpcomingDeadlines(
     futureDate.setDate(today.getDate() + days);
 
     // Get festivals with upcoming deadlines within the specified days
-    const upcomingFestivals = await Festival.find({
+    const festivals = await Festival.find({
       deadline: { $nin: [null, 'TBA', ''] },
       daysToSubmit: {
         $gte: 0,
@@ -146,24 +146,34 @@ export async function getUpcomingDeadlines(
       },
     }).sort({ daysToSubmit: 1 });
 
-    // Get festivals with TBA deadlines (still relevant for upcoming)
-    const tbaFestivals = await Festival.find({
+    res.json({
+      success: true,
+      data: festivals,
+      count: festivals.length,
+      period: {
+        from: today.toISOString().split('T')[0],
+        to: futureDate.toISOString().split('T')[0],
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getTbaFestivals(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const festivals = await Festival.find({
       deadline: 'TBA',
     }).sort({ name: 1 });
-
-    // Combine results: upcoming first, then TBA
-    const festivals = [...upcomingFestivals, ...tbaFestivals];
 
     res.json({
       success: true,
       data: festivals,
       count: festivals.length,
-      upcomingCount: upcomingFestivals.length,
-      tbaCount: tbaFestivals.length,
-      period: {
-        from: today.toISOString().split('T')[0],
-        to: futureDate.toISOString().split('T')[0],
-      },
     });
   } catch (error) {
     next(error);
