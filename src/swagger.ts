@@ -848,6 +848,74 @@ and extracts capsule images to supplement the enrichment data.
           }
         }
       }
+    },
+    '/api/enrich/google-images': {
+      post: {
+        tags: ['Enrichment'],
+        summary: 'Enrich images from Google Image Search',
+        description: `
+Enriches festival data by searching for images using Google Image Search via RapidAPI.
+
+**AI Context**: This endpoint searches for images of festivals that don't have an imageUrl set.
+It uses the query "steam + [festival name]" to find relevant promotional images.
+Requires RAPIDAPI_KEY to be set in environment variables.
+        `,
+        operationId: 'enrichImagesFromGoogle',
+        parameters: [
+          {
+            name: 'limit',
+            in: 'query',
+            description: 'Maximum number of festivals to process',
+            schema: { type: 'integer', default: 10 }
+          },
+          {
+            name: 'delay',
+            in: 'query',
+            description: 'Delay between API requests in milliseconds (for rate limiting)',
+            schema: { type: 'integer', default: 2000 }
+          }
+        ],
+        responses: {
+          '200': {
+            description: 'Google Image Search enrichment completed',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        total: { type: 'integer', description: 'Total festivals processed' },
+                        updated: { type: 'integer', description: 'Festivals successfully updated with images' },
+                        failed: { type: 'integer', description: 'Festivals where image search failed' },
+                        skipped: { type: 'integer', description: 'Festivals skipped' },
+                        errors: { type: 'array', items: { type: 'string' } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          '500': {
+            description: 'Server error (e.g., RapidAPI key not configured)',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    error: { type: 'string' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   components: {

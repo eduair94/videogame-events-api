@@ -1,5 +1,7 @@
+import axios from 'axios';
 import * as cheerio from 'cheerio';
 import fetch from 'node-fetch';
+import { config } from '../config';
 import { Festival, IFestival } from '../models';
 
 interface EnrichmentResult {
@@ -458,3 +460,163 @@ export async function getEnrichmentStats(): Promise<{
     withSocialLinks: withTwitter + withDiscord,
   };
 }
+
+interface GoogleImageResult {
+  id: string;
+  url: string;
+  width: number;
+  height: number;
+  preview: {
+    url: string;
+    width: number;
+    height: number;
+  };
+  origin: {
+    title: string;
+    website: {
+      name: string;
+      domain: string;
+      url: string;
+    };
+  };
+}
+
+interface GoogleImageSearchResponse {
+  results: GoogleImageResult[];
+  total: number;
+  query: string;
+}
+
+interface ImageSearchStats {
+  total: number;
+  updated: number;
+  failed: number;
+  skipped: number;
+  errors: string[];
+}
+
+/**
+ * Searches for an image using Google Image Search via RapidAPI
+ */
+async function searchGoogleImage(query: string): Promise<string | null> {
+  if (!config.rapidApi.key) {
+    console.log('  ⚠️ RapidAPI key not configured');
+    return null;
+  }
+
+  try {
+    const response = await axios.request<GoogleImageSearchResponse>({
+      method: 'GET',
+      url: 'https://google-search83.p.rapidapi.com/google/search_image',
+      params: {
+        query: query,
+        gl: 'us',
+        lr: 'en',
+        num: '5',
+        start: '0',
+        sort: 'relevance',
+        useWebSearch: 'true',
+      },
+      headers: {
+        'x-rapidapi-key': config.rapidApi.key,
+        'x-rapidapi-host': config.rapidApi.googleSearchHost,
+      },
+      timeout: 15000,
+    });
+
+    const images = response.data?.results;
+    if (images && images.length > 0) {
+      // Return the first image URL (full size), fallback to preview
+      return images[0].url || images[0].preview?.url || null;
+    }
+
+    return null;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`  ⚠️ Google Image Search failed: ${message}`);
+    return null;
+  }
+}
+
+/**
+ * Enriches festivals with missing imageUrl using Google Image Search
+ */
+export async function enrichImagesFromGoogleSearch(options: {
+  limit?: number;
+  delayMs?: number;
+} = {}): Promise<ImageSearchStats> {
+  const { limit = 10, delayMs = 2000 } = options;
+
+  const stats: ImageSearchStats = {
+    total: 0,
+    updated: 0,
+    failed: 0,
+    skipped: 0,
+    errors: [],
+  };
+
+  if (!config.rapidApi.key) {
+    stats.errors.push('RapidAPI key not configured. Set RAPIDAPI_KEY in .env');
+    return stats;
+  }
+
+  // Find festivals without imageUrl in enrichment
+  const query: Record<string, unknown> = {
+    $or: [
+      { 'enrichment.imageUrl': null },
+      { 'enrichment.imageUrl': '' },
+      { 'enrichment.imageUrl': { $exists: false } },
+    ],
+  };
+
+  const festivals = await Festival.find(query).limit(limit);
+  stats.total = festivals.length;
+
+  console.log(`\n🔍 Found ${stats.total} festivals without images\n`);
+
+  for (let i = 0; i < festivals.length; i++) {
+    const festival = festivals[i];
+    const progress = `[${i + 1}/${stats.total}]`;
+
+    console.log(`${progress} Searching image for: ${festival.name}`);
+
+    // Create search query: "steam" + event name
+    const searchQuery = `steam ${festival.name}`;
+
+    try {
+      const imageUrl = await searchGoogleImage(searchQuery);
+
+      if (imageUrl) {
+        // Update the festival with the new imageUrl
+        festival.enrichment.imageUrl = imageUrl;
+        festival.enrichment.lastCheckedAt = new Date();
+        await festival.save();
+
+        console.log(`  ✅ Found image: ${imageUrl}`);
+        stats.updated++;
+      } else {
+        console.log(`  ❌ No image found`);
+        stats.failed++;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.log(`  ❌ Error: ${message}`);
+      stats.errors.push(`${festival.name}: ${message}`);
+      stats.failed++;
+    }
+
+    // Respect rate limits
+    if (i < festivals.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.log(`\n📊 Image Search Results:`);
+  console.log(`   Total: ${stats.total}`);
+  console.log(`   Updated: ${stats.updated}`);
+  console.log(`   Failed: ${stats.failed}`);
+  console.log(`   Skipped: ${stats.skipped}`);
+
+  return stats;
+}
+

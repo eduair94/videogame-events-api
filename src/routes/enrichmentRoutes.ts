@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { enrichFromSteam, getStats, startEnrichment } from '../controllers/enrichmentController';
+import { enrichFromSteam, enrichImagesFromGoogle, getStats, startEnrichment } from '../controllers/enrichmentController';
 
 const router = Router();
 
@@ -25,5 +25,13 @@ router.post('/', startEnrichment);
  * @query   delay - Delay between requests in ms (default: 1500)
  */
 router.post('/steam', enrichFromSteam);
+
+/**
+ * @route   POST /api/enrich/google-images
+ * @desc    Enrich festivals with images from Google Image Search using RapidAPI
+ * @query   limit - Maximum number of festivals to process (default: 10)
+ * @query   delay - Delay between requests in ms (default: 2000)
+ */
+router.post('/google-images', enrichImagesFromGoogle);
 
 export default router;

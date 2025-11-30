@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { enrichAllFestivals, enrichFromSteamPages, getEnrichmentStats } from '../services/enrichmentService';
+import { enrichAllFestivals, enrichFromSteamPages, enrichImagesFromGoogleSearch, getEnrichmentStats } from '../services/enrichmentService';
 
 /**
  * Get enrichment statistics
@@ -69,6 +69,34 @@ export const enrichFromSteam = async (req: Request, res: Response): Promise<void
     res.json({
       success: true,
       message: 'Steam enrichment completed',
+      data: stats,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ success: false, error: message });
+  }
+};
+
+/**
+ * Enrich festivals with images from Google Image Search
+ * Uses RapidAPI's Google Search to find images for events without imageUrl
+ */
+export const enrichImagesFromGoogle = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { limit, delay } = req.query;
+    
+    const options = {
+      limit: limit ? parseInt(limit as string, 10) : 10,
+      delayMs: delay ? parseInt(delay as string, 10) : 2000,
+    };
+
+    console.log(`\n🔍 Starting Google Image Search enrichment via API (limit: ${options.limit})\n`);
+    
+    const stats = await enrichImagesFromGoogleSearch(options);
+    
+    res.json({
+      success: true,
+      message: 'Google Image Search enrichment completed',
       data: stats,
     });
   } catch (error) {

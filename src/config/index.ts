@@ -14,6 +14,10 @@ export const config = {
   data: {
     csvPath: process.env.CSV_DATA_PATH || './downloads',
   },
+  rapidApi: {
+    key: process.env.RAPIDAPI_KEY || '',
+    googleSearchHost: 'google-search83.p.rapidapi.com',
+  },
 } as const;
 
 export const csvFiles = {
