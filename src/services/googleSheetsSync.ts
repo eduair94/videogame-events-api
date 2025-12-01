@@ -185,14 +185,14 @@ async function syncOnTheFenceSheet(): Promise<SheetSyncResult> {
         type: cleanString(row['Type']),
         when: cleanString(row['When']),
         deadline: cleanString(row['Deadline (YYYY-MM-DD)']) || null,
-        submissionOpen: false,
+        submissionOpen: parseBoolean(row['Submission Open']),
         price: cleanString(row['Price']),
         hasSteamPage: cleanString(row['Steam page']),
         worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
         comments: cleanString(row['Comments']),
         eventOfficialPage: cleanString(row['Event official page']),
         latestSteamPage: cleanString(row['Latest Steam page']),
-        daysToSubmit: null,
+        daysToSubmit: parseNumber(row['Days to submit']),
         category: 'on-the-fence' as const,
       }))
       .filter((f: { name: string }) => f.name && f.name.length > 0);
