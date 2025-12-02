@@ -272,11 +272,15 @@ Returns counts by type, source, and submission status.
         tags: ['Festivals'],
         summary: 'Get festivals with open submissions',
         description: `
-Returns festivals that currently have open submission periods.
+Returns festivals that currently have open submission periods and haven't passed their deadline.
 
 **AI Context**: This endpoint filters festivals where:
-- Current date is after submission start date
-- Current date is before submission end date
+- submissionOpen is true
+- AND either:
+  - daysToSubmit >= 0 (deadline hasn't passed)
+  - OR deadline is TBA/null/empty (no deadline set yet)
+
+This ensures festivals with passed deadlines are excluded even if submissionOpen hasn't been updated.
 Useful for developers looking for festivals to submit their games to.
         `,
         operationId: 'getOpenFestivals',

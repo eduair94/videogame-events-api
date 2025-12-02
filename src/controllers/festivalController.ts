@@ -137,9 +137,18 @@ export async function getOpenSubmissions(
   next: NextFunction
 ): Promise<void> {
   try {
+    // Get festivals that are marked as open AND haven't passed their deadline
+    // Include TBA deadlines (null or 'TBA') as they might still be open
     const festivals = await Festival.find({
       submissionOpen: true,
-    }).sort({ deadline: 1 });
+      $or: [
+        { daysToSubmit: { $gte: 0 } },  // Deadline hasn't passed
+        { daysToSubmit: null },          // No daysToSubmit calculated (TBA)
+        { deadline: null },              // No deadline set
+        { deadline: 'TBA' },             // Deadline is TBA
+        { deadline: '' },                // Empty deadline
+      ]
+    }).sort({ daysToSubmit: 1, deadline: 1 });
 
     res.json({
       success: true,

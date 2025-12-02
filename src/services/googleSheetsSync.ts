@@ -68,6 +68,27 @@ function cleanString(value: string | undefined): string {
 }
 
 /**
+ * Calculate days until a deadline date
+ */
+function calculateDaysUntil(deadlineStr: string | null): number | null {
+  if (!deadlineStr) return null;
+  
+  // Parse date in YYYY-MM-DD format
+  const deadline = new Date(deadlineStr);
+  if (isNaN(deadline.getTime())) return null;
+  
+  const today = new Date();
+  // Reset time to start of day for accurate day calculation
+  today.setHours(0, 0, 0, 0);
+  deadline.setHours(0, 0, 0, 0);
+  
+  const diffTime = deadline.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  return diffDays;
+}
+
+/**
  * Builds the CSV export URL for a Google Sheet
  */
 function buildExportUrl(spreadsheetId: string, gid: string): string {
@@ -76,13 +97,21 @@ function buildExportUrl(spreadsheetId: string, gid: string): string {
 
 /**
  * Fetches CSV content from Google Sheets export URL
+ * Adds cache-busting parameter to ensure we get the latest version
  */
 async function fetchSheetAsCSV(gid: string): Promise<string> {
-  const url = buildExportUrl(SPREADSHEET_ID, gid);
+  // Add timestamp to bust any caching
+  const cacheBuster = Date.now();
+  const url = `${buildExportUrl(SPREADSHEET_ID, gid)}&_=${cacheBuster}`;
+  
+  console.log(`    🌐 Fetching URL: ${url}`);
   
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
     },
     redirect: 'follow'
   });
@@ -91,7 +120,10 @@ async function fetchSheetAsCSV(gid: string): Promise<string> {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  return await response.text();
+  const content = await response.text();
+  console.log(`    📄 Received ${content.length} bytes`);
+  
+  return content;
 }
 
 /**
@@ -113,27 +145,58 @@ async function syncCuratedSheet(): Promise<SheetSyncResult> {
       relax_quotes: true,
     });
 
+    // Log available columns from first record
+    if (records.length > 0) {
+      console.log(`    📋 Available columns: ${Object.keys(records[0]).join(', ')}`);
+    }
+
     const festivals = records
       .filter((row: Record<string, string>) => {
         const name = row['Festival'] || row[''] || Object.values(row)[0];
         return name && typeof name === 'string' && name.trim() !== '' && 
                !name.includes('OPEN') && !name.includes('CLOSING');
       })
-      .map((row: Record<string, string>) => ({
-        name: cleanString(row['Festival'] || Object.values(row)[0] as string),
-        type: cleanString(row['Type']),
-        when: cleanString(row['When']),
-        deadline: cleanString(row['Deadline (YYYY-MM-DD)']) || null,
-        submissionOpen: parseBoolean(row['Submission Open']),
-        price: cleanString(row['Price']),
-        hasSteamPage: cleanString(row['Steam page']),
-        worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
-        comments: cleanString(row['Comments']),
-        eventOfficialPage: cleanString(row['Event official page']),
-        latestSteamPage: cleanString(row['Latest Steam page']),
-        daysToSubmit: parseNumber(row['Days to submit']),
-        category: 'curated' as const,
-      }))
+      .map((row: Record<string, string>) => {
+        const name = cleanString(row['Festival'] || Object.values(row)[0] as string);
+        const daysToSubmitRaw = row['Days to submit'];
+        const submissionOpenRaw = row['Submission Open'];
+        const deadlineRaw = row['Deadline (YYYY-MM-DD)'];
+        
+        const parsedDaysToSubmit = parseNumber(daysToSubmitRaw);
+        const deadlineStr = cleanString(deadlineRaw) || null;
+        const calculatedDays = calculateDaysUntil(deadlineStr);
+        
+        // Debug log for each festival
+        console.log(`    🎮 ${name}:`);
+        console.log(`       - Days to submit (raw): "${daysToSubmitRaw}" → parsed: ${parsedDaysToSubmit}`);
+        console.log(`       - Deadline (raw): "${deadlineRaw}" → cleaned: "${deadlineStr}"`);
+        console.log(`       - Calculated days from deadline: ${calculatedDays}`);
+        if (deadlineStr && parsedDaysToSubmit !== null && calculatedDays !== null) {
+          const diff = Math.abs(parsedDaysToSubmit - calculatedDays);
+          if (diff <= 1) {
+            console.log(`       ✅ CONSISTENT: Sheet says ${parsedDaysToSubmit}, calculated ${calculatedDays} (diff: ${diff})`);
+          } else {
+            console.log(`       ⚠️ MISMATCH: Sheet says ${parsedDaysToSubmit}, calculated ${calculatedDays} (diff: ${diff})`);
+          }
+        }
+        console.log(`       - Submission Open (raw): "${submissionOpenRaw}" → parsed: ${parseBoolean(submissionOpenRaw)}`);
+        
+        return {
+          name,
+          type: cleanString(row['Type']),
+          when: cleanString(row['When']),
+          deadline: deadlineStr,
+          submissionOpen: parseBoolean(submissionOpenRaw),
+          price: cleanString(row['Price']),
+          hasSteamPage: cleanString(row['Steam page']),
+          worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
+          comments: cleanString(row['Comments']),
+          eventOfficialPage: cleanString(row['Event official page']),
+          latestSteamPage: cleanString(row['Latest Steam page']),
+          daysToSubmit: parsedDaysToSubmit,
+          category: 'curated' as const,
+        };
+      })
       .filter((f: { name: string }) => f.name && f.name.length > 0);
 
     // Upsert festivals
@@ -175,26 +238,57 @@ async function syncOnTheFenceSheet(): Promise<SheetSyncResult> {
       relax_quotes: true,
     });
 
+    // Log available columns from first record
+    if (records.length > 0) {
+      console.log(`    📋 Available columns: ${Object.keys(records[0]).join(', ')}`);
+    }
+
     const festivals = records
       .filter((row: Record<string, string>) => {
         const name = row['Festival'] || Object.values(row)[0];
         return name && typeof name === 'string' && name.trim() !== '';
       })
-      .map((row: Record<string, string>) => ({
-        name: cleanString(row['Festival'] || Object.values(row)[0] as string),
-        type: cleanString(row['Type']),
-        when: cleanString(row['When']),
-        deadline: cleanString(row['Deadline (YYYY-MM-DD)']) || null,
-        submissionOpen: parseBoolean(row['Submission Open']),
-        price: cleanString(row['Price']),
-        hasSteamPage: cleanString(row['Steam page']),
-        worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
-        comments: cleanString(row['Comments']),
-        eventOfficialPage: cleanString(row['Event official page']),
-        latestSteamPage: cleanString(row['Latest Steam page']),
-        daysToSubmit: parseNumber(row['Days to submit']),
-        category: 'on-the-fence' as const,
-      }))
+      .map((row: Record<string, string>) => {
+        const name = cleanString(row['Festival'] || Object.values(row)[0] as string);
+        const daysToSubmitRaw = row['Days to submit'];
+        const submissionOpenRaw = row['Submission Open'];
+        const deadlineRaw = row['Deadline (YYYY-MM-DD)'];
+        
+        const parsedDaysToSubmit = parseNumber(daysToSubmitRaw);
+        const deadlineStr = cleanString(deadlineRaw) || null;
+        const calculatedDays = calculateDaysUntil(deadlineStr);
+        
+        // Debug log for each festival
+        console.log(`    🎮 ${name}:`);
+        console.log(`       - Days to submit (raw): "${daysToSubmitRaw}" → parsed: ${parsedDaysToSubmit}`);
+        console.log(`       - Deadline (raw): "${deadlineRaw}" → cleaned: "${deadlineStr}"`);
+        console.log(`       - Calculated days from deadline: ${calculatedDays}`);
+        if (deadlineStr && parsedDaysToSubmit !== null && calculatedDays !== null) {
+          const diff = Math.abs(parsedDaysToSubmit - calculatedDays);
+          if (diff <= 1) {
+            console.log(`       ✅ CONSISTENT: Sheet says ${parsedDaysToSubmit}, calculated ${calculatedDays} (diff: ${diff})`);
+          } else {
+            console.log(`       ⚠️ MISMATCH: Sheet says ${parsedDaysToSubmit}, calculated ${calculatedDays} (diff: ${diff})`);
+          }
+        }
+        console.log(`       - Submission Open (raw): "${submissionOpenRaw}" → parsed: ${parseBoolean(submissionOpenRaw)}`);
+        
+        return {
+          name,
+          type: cleanString(row['Type']),
+          when: cleanString(row['When']),
+          deadline: deadlineStr,
+          submissionOpen: parseBoolean(submissionOpenRaw),
+          price: cleanString(row['Price']),
+          hasSteamPage: cleanString(row['Steam page']),
+          worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
+          comments: cleanString(row['Comments']),
+          eventOfficialPage: cleanString(row['Event official page']),
+          latestSteamPage: cleanString(row['Latest Steam page']),
+          daysToSubmit: parsedDaysToSubmit,
+          category: 'on-the-fence' as const,
+        };
+      })
       .filter((f: { name: string }) => f.name && f.name.length > 0);
 
     // Upsert festivals

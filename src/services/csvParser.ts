@@ -1,7 +1,7 @@
 import { parse } from 'csv-parse/sync';
 import fs from 'fs';
 import { csvFiles } from '../config';
-import { Festival, SteamFeature, SyncLog } from '../models';
+import { Festival, SteamFeature, SyncLog, generateSlug } from '../models';
 
 function parseBoolean(value: string): boolean {
   return value?.toUpperCase() === 'TRUE';
@@ -15,6 +15,40 @@ function parseNumber(value: string): number | null {
 function cleanString(value: string | undefined): string {
   if (!value) return '';
   return value.trim();
+}
+
+/**
+ * Calculate days until a deadline date (for consistency validation)
+ */
+function calculateDaysUntil(deadlineStr: string | null): number | null {
+  if (!deadlineStr) return null;
+  
+  const deadline = new Date(deadlineStr);
+  if (isNaN(deadline.getTime())) return null;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  deadline.setHours(0, 0, 0, 0);
+  
+  const diffTime = deadline.getTime() - today.getTime();
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Generate a unique slug for a festival, including year if deadline is provided
+ */
+function generateUniqueSlug(name: string, deadline: string | null): string {
+  const baseSlug = generateSlug(name);
+  
+  // If there's a deadline, extract the year and append it to make slug unique
+  if (deadline) {
+    const year = deadline.split('-')[0];
+    if (year && year.length === 4) {
+      return `${baseSlug}-${year}`;
+    }
+  }
+  
+  return baseSlug;
 }
 
 export async function parseCuratedCSV(): Promise<void> {
@@ -43,27 +77,48 @@ export async function parseCuratedCSV(): Promise<void> {
       return name && typeof name === 'string' && name.trim() !== '' && 
              !name.includes('OPEN') && !name.includes('CLOSING');
     })
-    .map((row: Record<string, string>) => ({
-      name: cleanString(row['Festival'] || Object.values(row)[0] as string),
-      type: cleanString(row['Type']),
-      when: cleanString(row['When']),
-      deadline: cleanString(row['Deadline (YYYY-MM-DD)']) || null,
-      submissionOpen: parseBoolean(row['Submission Open']),
-      price: cleanString(row['Price']),
-      hasSteamPage: cleanString(row['Steam page']),
-      worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
-      comments: cleanString(row['Comments']),
-      eventOfficialPage: cleanString(row['Event official page']),
-      latestSteamPage: cleanString(row['Latest Steam page']),
-      daysToSubmit: parseNumber(row['Days to submit']),
-      category: 'curated' as const,
-    }))
+    .map((row: Record<string, string>) => {
+      const name = cleanString(row['Festival'] || Object.values(row)[0] as string);
+      const deadline = cleanString(row['Deadline (YYYY-MM-DD)']) || null;
+      const daysToSubmitRaw = row['Days to submit'];
+      const parsedDaysToSubmit = parseNumber(daysToSubmitRaw);
+      const calculatedDays = calculateDaysUntil(deadline);
+      
+      // Log consistency check
+      console.log(`  🎮 ${name}:`);
+      console.log(`     - Deadline: "${deadline}" | Days (sheet): ${parsedDaysToSubmit} | Days (calculated): ${calculatedDays}`);
+      if (deadline && parsedDaysToSubmit !== null && calculatedDays !== null) {
+        const diff = Math.abs(parsedDaysToSubmit - calculatedDays);
+        if (diff <= 1) {
+          console.log(`     ✅ CONSISTENT (diff: ${diff})`);
+        } else {
+          console.log(`     ⚠️ MISMATCH! Sheet=${parsedDaysToSubmit}, Calculated=${calculatedDays}, diff=${diff}`);
+        }
+      }
+      
+      return {
+        name,
+        slug: generateUniqueSlug(name, deadline),
+        type: cleanString(row['Type']),
+        when: cleanString(row['When']),
+        deadline,
+        submissionOpen: parseBoolean(row['Submission Open']),
+        price: cleanString(row['Price']),
+        hasSteamPage: cleanString(row['Steam page']),
+        worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
+        comments: cleanString(row['Comments']),
+        eventOfficialPage: cleanString(row['Event official page']),
+        latestSteamPage: cleanString(row['Latest Steam page']),
+        daysToSubmit: parsedDaysToSubmit,
+        category: 'curated' as const,
+      };
+    })
     .filter((f: { name: string }) => f.name && f.name.length > 0);
 
-  // Upsert festivals
+  // Upsert festivals using slug as unique identifier
   for (const festival of festivals) {
     await Festival.findOneAndUpdate(
-      { name: festival.name, category: 'curated' },
+      { slug: festival.slug },
       festival,
       { upsert: true, new: true }
     );
@@ -97,26 +152,48 @@ export async function parseOnTheFenceCSV(): Promise<void> {
       const name = row['Festival'] || Object.values(row)[0];
       return name && typeof name === 'string' && name.trim() !== '';
     })
-    .map((row: Record<string, string>) => ({
-      name: cleanString(row['Festival'] || Object.values(row)[0] as string),
-      type: cleanString(row['Type']),
-      when: cleanString(row['When']),
-      deadline: cleanString(row['Deadline (YYYY-MM-DD)']) || null,
-      submissionOpen: false,
-      price: cleanString(row['Price']),
-      hasSteamPage: cleanString(row['Steam page']),
-      worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
-      comments: cleanString(row['Comments']),
-      eventOfficialPage: cleanString(row['Event official page']),
-      latestSteamPage: cleanString(row['Latest Steam page']),
-      daysToSubmit: null,
-      category: 'on-the-fence' as const,
-    }))
+    .map((row: Record<string, string>) => {
+      const name = cleanString(row['Festival'] || Object.values(row)[0] as string);
+      const deadline = cleanString(row['Deadline (YYYY-MM-DD)']) || null;
+      const daysToSubmitRaw = row['Days to submit'];
+      const parsedDaysToSubmit = parseNumber(daysToSubmitRaw);
+      const calculatedDays = calculateDaysUntil(deadline);
+      
+      // Log consistency check
+      console.log(`  🎮 ${name}:`);
+      console.log(`     - Deadline: "${deadline}" | Days (sheet): ${parsedDaysToSubmit} | Days (calculated): ${calculatedDays}`);
+      if (deadline && parsedDaysToSubmit !== null && calculatedDays !== null) {
+        const diff = Math.abs(parsedDaysToSubmit - calculatedDays);
+        if (diff <= 1) {
+          console.log(`     ✅ CONSISTENT (diff: ${diff})`);
+        } else {
+          console.log(`     ⚠️ MISMATCH! Sheet=${parsedDaysToSubmit}, Calculated=${calculatedDays}, diff=${diff}`);
+        }
+      }
+      
+      return {
+        name,
+        slug: generateUniqueSlug(name, deadline),
+        type: cleanString(row['Type']),
+        when: cleanString(row['When']),
+        deadline,
+        submissionOpen: parseBoolean(row['Submission Open']),
+        price: cleanString(row['Price']),
+        hasSteamPage: cleanString(row['Steam page']),
+        worthIt: cleanString(row['Was it worth the price?\nOpinions are biased (check comments)']),
+        comments: cleanString(row['Comments']),
+        eventOfficialPage: cleanString(row['Event official page']),
+        latestSteamPage: cleanString(row['Latest Steam page']),
+        daysToSubmit: parsedDaysToSubmit,
+        category: 'on-the-fence' as const,
+      };
+    })
     .filter((f: { name: string }) => f.name && f.name.length > 0);
 
+  // Upsert festivals using slug as unique identifier
   for (const festival of festivals) {
     await Festival.findOneAndUpdate(
-      { name: festival.name, category: 'on-the-fence' },
+      { slug: festival.slug },
       festival,
       { upsert: true, new: true }
     );
