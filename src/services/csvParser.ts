@@ -35,20 +35,10 @@ function calculateDaysUntil(deadlineStr: string | null): number | null {
 }
 
 /**
- * Generate a unique slug for a festival, including year if deadline is provided
+ * Generate a slug for a festival name (without year - year suffix was causing duplicates)
  */
-function generateUniqueSlug(name: string, deadline: string | null): string {
-  const baseSlug = generateSlug(name);
-  
-  // If there's a deadline, extract the year and append it to make slug unique
-  if (deadline) {
-    const year = deadline.split('-')[0];
-    if (year && year.length === 4) {
-      return `${baseSlug}-${year}`;
-    }
-  }
-  
-  return baseSlug;
+function generateSlugForFestival(name: string): string {
+  return generateSlug(name);
 }
 
 export async function parseCuratedCSV(): Promise<void> {
@@ -98,7 +88,7 @@ export async function parseCuratedCSV(): Promise<void> {
       
       return {
         name,
-        slug: generateUniqueSlug(name, deadline),
+        slug: generateSlugForFestival(name),
         type: cleanString(row['Type']),
         when: cleanString(row['When']),
         deadline,
@@ -115,16 +105,36 @@ export async function parseCuratedCSV(): Promise<void> {
     })
     .filter((f: { name: string }) => f.name && f.name.length > 0);
 
-  // Upsert festivals using slug as unique identifier
-  for (const festival of festivals) {
-    await Festival.findOneAndUpdate(
-      { slug: festival.slug },
-      festival,
-      { upsert: true, new: true }
-    );
+  // Deduplicate by name - keep the first occurrence
+  const seenNames = new Set<string>();
+  const uniqueFestivals = festivals.filter((f: { name: string }) => {
+    if (seenNames.has(f.name)) {
+      console.log(`    ⚠️ Skipping duplicate: "${f.name}"`);
+      return false;
+    }
+    seenNames.add(f.name);
+    return true;
+  });
+
+  console.log(`    📊 After deduplication: ${uniqueFestivals.length} unique festivals (${festivals.length - uniqueFestivals.length} duplicates removed)`);
+
+  // Upsert festivals using name + category as unique identifier
+  let syncedCount = 0;
+  for (const festival of uniqueFestivals) {
+    try {
+      await Festival.findOneAndUpdate(
+        { name: festival.name, category: 'curated' },
+        festival,
+        { upsert: true, new: true }
+      );
+      syncedCount++;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`    ❌ Failed to upsert "${festival.name}": ${msg}`);
+    }
   }
 
-  console.log(`✅ Synced ${festivals.length} curated festivals`);
+  console.log(`✅ Synced ${syncedCount} curated festivals`);
 }
 
 export async function parseOnTheFenceCSV(): Promise<void> {
@@ -173,7 +183,7 @@ export async function parseOnTheFenceCSV(): Promise<void> {
       
       return {
         name,
-        slug: generateUniqueSlug(name, deadline),
+        slug: generateSlugForFestival(name),
         type: cleanString(row['Type']),
         when: cleanString(row['When']),
         deadline,
@@ -190,16 +200,36 @@ export async function parseOnTheFenceCSV(): Promise<void> {
     })
     .filter((f: { name: string }) => f.name && f.name.length > 0);
 
-  // Upsert festivals using slug as unique identifier
-  for (const festival of festivals) {
-    await Festival.findOneAndUpdate(
-      { slug: festival.slug },
-      festival,
-      { upsert: true, new: true }
-    );
+  // Deduplicate by name - keep the first occurrence
+  const seenNames = new Set<string>();
+  const uniqueFestivals = festivals.filter((f: { name: string }) => {
+    if (seenNames.has(f.name)) {
+      console.log(`    ⚠️ Skipping duplicate: "${f.name}"`);
+      return false;
+    }
+    seenNames.add(f.name);
+    return true;
+  });
+
+  console.log(`    📊 After deduplication: ${uniqueFestivals.length} unique festivals (${festivals.length - uniqueFestivals.length} duplicates removed)`);
+
+  // Upsert festivals using name + category as unique identifier
+  let syncedCount = 0;
+  for (const festival of uniqueFestivals) {
+    try {
+      await Festival.findOneAndUpdate(
+        { name: festival.name, category: 'on-the-fence' },
+        festival,
+        { upsert: true, new: true }
+      );
+      syncedCount++;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`    ❌ Failed to upsert "${festival.name}": ${msg}`);
+    }
   }
 
-  console.log(`✅ Synced ${festivals.length} on-the-fence festivals`);
+  console.log(`✅ Synced ${syncedCount} on-the-fence festivals`);
 }
 
 export async function parseSteamTrackerCSV(): Promise<void> {

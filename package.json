@@ -11,6 +11,7 @@
     "sync:sheets": "ts-node src/scripts/syncGoogleSheets.ts",
     "sync:sheets:csv": "ts-node src/scripts/syncGoogleSheets.ts --csv-only",
     "sync:images": "ts-node src/scripts/syncImages.ts",
+    "test:enrichment": "ts-node src/scripts/testEnrichment.ts",
     "enrich": "ts-node src/scripts/enrich.ts",
     "enrich:ai": "ts-node src/scripts/aiEnrichFestivals.ts",
     "enrich:ai:force": "ts-node src/scripts/aiEnrichFestivals.ts --force",

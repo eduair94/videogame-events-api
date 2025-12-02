@@ -63,6 +63,8 @@ export interface IFestival extends Document {
   latestSteamPage: string;
   daysToSubmit: number | null;
   category: 'curated' | 'on-the-fence';
+  // Sync tracking field
+  lastSyncedAt: Date | null;
   // Enrichment fields
   enrichment: IFestivalEnrichment;
   aiEnrichment: IAIEnrichment;
@@ -211,6 +213,11 @@ const FestivalSchema = new Schema<IFestival>(
       required: true,
       index: true,
     },
+    lastSyncedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     enrichment: {
       type: EnrichmentSchema,
       default: () => ({
@@ -285,6 +292,9 @@ FestivalSchema.pre('save', async function (next) {
   }
   next();
 });
+
+// Compound unique index for name + category (prevents duplicate festivals)
+FestivalSchema.index({ name: 1, category: 1 }, { unique: true });
 
 // Compound index for common queries
 FestivalSchema.index({ category: 1, type: 1 });

@@ -40,6 +40,7 @@ const SHEETS = {
 interface SheetSyncResult {
   success: boolean;
   count: number;
+  syncedNames: string[];
   error?: string;
 }
 
@@ -48,6 +49,7 @@ interface FullSyncResult {
   onTheFenceCount: number;
   steamFeaturesCount: number;
   totalFestivals: number;
+  deletedCount: number;
   errors: string[];
   timestamp: Date;
 }
@@ -129,7 +131,8 @@ async function fetchSheetAsCSV(gid: string): Promise<string> {
 /**
  * Parses and syncs the Curated festivals sheet
  */
-async function syncCuratedSheet(): Promise<SheetSyncResult> {
+async function syncCuratedSheet(syncTimestamp: Date): Promise<SheetSyncResult> {
+  const syncedNames: string[] = [];
   try {
     console.log(`  📥 Fetching: ${SHEETS.curated.name}...`);
     const csvContent = await fetchSheetAsCSV(SHEETS.curated.gid);
@@ -150,7 +153,7 @@ async function syncCuratedSheet(): Promise<SheetSyncResult> {
       console.log(`    📋 Available columns: ${Object.keys(records[0]).join(', ')}`);
     }
 
-    const festivals = records
+    const festivalsRaw = records
       .filter((row: Record<string, string>) => {
         const name = row['Festival'] || row[''] || Object.values(row)[0];
         return name && typeof name === 'string' && name.trim() !== '' && 
@@ -195,34 +198,56 @@ async function syncCuratedSheet(): Promise<SheetSyncResult> {
           latestSteamPage: cleanString(row['Latest Steam page']),
           daysToSubmit: parsedDaysToSubmit,
           category: 'curated' as const,
+          lastSyncedAt: syncTimestamp,
         };
       })
       .filter((f: { name: string }) => f.name && f.name.length > 0);
 
-    // Upsert festivals
+    // Deduplicate by name - keep the first occurrence (which is typically the most recent in the sheet)
+    const seenNames = new Set<string>();
+    const festivals = festivalsRaw.filter((f: { name: string }) => {
+      if (seenNames.has(f.name)) {
+        console.log(`    ⚠️ Skipping duplicate: "${f.name}"`);
+        return false;
+      }
+      seenNames.add(f.name);
+      return true;
+    });
+
+    console.log(`    📊 After deduplication: ${festivals.length} unique festivals (${festivalsRaw.length - festivals.length} duplicates removed)`);
+
+    // Upsert festivals and track synced names
     let syncedCount = 0;
     for (const festival of festivals) {
-      await Festival.findOneAndUpdate(
-        { name: festival.name, category: 'curated' },
-        festival,
-        { upsert: true, new: true }
-      );
-      syncedCount++;
+      try {
+        await Festival.findOneAndUpdate(
+          { name: festival.name, category: 'curated' },
+          festival,
+          { upsert: true, new: true }
+        );
+        syncedNames.push(festival.name);
+        syncedCount++;
+      } catch (upsertError) {
+        const errMsg = upsertError instanceof Error ? upsertError.message : 'Unknown error';
+        console.error(`    ❌ Failed to upsert "${festival.name}": ${errMsg}`);
+        // Continue with next festival instead of failing completely
+      }
     }
 
     console.log(`  ✅ Synced ${syncedCount} curated festivals`);
-    return { success: true, count: syncedCount };
+    return { success: true, count: syncedCount, syncedNames };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`  ❌ Error syncing curated: ${message}`);
-    return { success: false, count: 0, error: message };
+    return { success: false, count: 0, syncedNames, error: message };
   }
 }
 
 /**
  * Parses and syncs the On the Fence festivals sheet
  */
-async function syncOnTheFenceSheet(): Promise<SheetSyncResult> {
+async function syncOnTheFenceSheet(syncTimestamp: Date): Promise<SheetSyncResult> {
+  const syncedNames: string[] = [];
   try {
     console.log(`  📥 Fetching: ${SHEETS.onTheFence.name}...`);
     const csvContent = await fetchSheetAsCSV(SHEETS.onTheFence.gid);
@@ -243,7 +268,7 @@ async function syncOnTheFenceSheet(): Promise<SheetSyncResult> {
       console.log(`    📋 Available columns: ${Object.keys(records[0]).join(', ')}`);
     }
 
-    const festivals = records
+    const festivalsRaw = records
       .filter((row: Record<string, string>) => {
         const name = row['Festival'] || Object.values(row)[0];
         return name && typeof name === 'string' && name.trim() !== '';
@@ -287,34 +312,57 @@ async function syncOnTheFenceSheet(): Promise<SheetSyncResult> {
           latestSteamPage: cleanString(row['Latest Steam page']),
           daysToSubmit: parsedDaysToSubmit,
           category: 'on-the-fence' as const,
+          lastSyncedAt: syncTimestamp,
         };
       })
       .filter((f: { name: string }) => f.name && f.name.length > 0);
 
-    // Upsert festivals
+    // Deduplicate by name - keep the first occurrence (which is typically the most recent in the sheet)
+    const seenNames = new Set<string>();
+    const festivals = festivalsRaw.filter((f: { name: string }) => {
+      if (seenNames.has(f.name)) {
+        console.log(`    ⚠️ Skipping duplicate: "${f.name}"`);
+        return false;
+      }
+      seenNames.add(f.name);
+      return true;
+    });
+
+    console.log(`    📊 After deduplication: ${festivals.length} unique festivals (${festivalsRaw.length - festivals.length} duplicates removed)`);
+
+    // Upsert festivals and track synced names
     let syncedCount = 0;
     for (const festival of festivals) {
-      await Festival.findOneAndUpdate(
-        { name: festival.name, category: 'on-the-fence' },
-        festival,
-        { upsert: true, new: true }
-      );
-      syncedCount++;
+      try {
+        await Festival.findOneAndUpdate(
+          { name: festival.name, category: 'on-the-fence' },
+          festival,
+          { upsert: true, new: true }
+        );
+        syncedNames.push(festival.name);
+        syncedCount++;
+      } catch (upsertError) {
+        const errMsg = upsertError instanceof Error ? upsertError.message : 'Unknown error';
+        console.error(`    ❌ Failed to upsert "${festival.name}": ${errMsg}`);
+        // Continue with next festival instead of failing completely
+      }
     }
 
     console.log(`  ✅ Synced ${syncedCount} on-the-fence festivals`);
-    return { success: true, count: syncedCount };
+    return { success: true, count: syncedCount, syncedNames };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`  ❌ Error syncing on-the-fence: ${message}`);
-    return { success: false, count: 0, error: message };
+    return { success: false, count: 0, syncedNames, error: message };
   }
 }
 
 /**
  * Parses and syncs the Steam feature tracker sheet
+ * Note: Steam features don't need deletion tracking as they're keyed by festivalName
  */
 async function syncSteamTrackerSheet(): Promise<SheetSyncResult> {
+  const syncedNames: string[] = [];
   try {
     console.log(`  📥 Fetching: ${SHEETS.steamTracker.name}...`);
     const csvContent = await fetchSheetAsCSV(SHEETS.steamTracker.gid);
@@ -357,21 +405,25 @@ async function syncSteamTrackerSheet(): Promise<SheetSyncResult> {
         feature,
         { upsert: true, new: true }
       );
+      syncedNames.push(feature.festivalName);
       syncedCount++;
     }
 
     console.log(`  ✅ Synced ${syncedCount} Steam features`);
-    return { success: true, count: syncedCount };
+    return { success: true, count: syncedCount, syncedNames };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     console.error(`  ❌ Error syncing steam tracker: ${message}`);
-    return { success: false, count: 0, error: message };
+    return { success: false, count: 0, syncedNames, error: message };
   }
 }
 
 /**
  * Syncs all sheets from Google Sheets directly to MongoDB
  * No filesystem operations - works in serverless environments
+ * 
+ * After syncing, removes any festivals that weren't updated in this sync
+ * (i.e., festivals that were deleted from the spreadsheet)
  */
 export async function syncFromGoogleSheets(): Promise<FullSyncResult> {
   console.log('\n🔄 Syncing from Google Sheets to MongoDB...');
@@ -379,15 +431,16 @@ export async function syncFromGoogleSheets(): Promise<FullSyncResult> {
 
   const errors: string[] = [];
   const timestamp = new Date();
+  let deletedCount = 0;
   
   // Sync Curated sheet
-  const curatedResult = await syncCuratedSheet();
+  const curatedResult = await syncCuratedSheet(timestamp);
   if (!curatedResult.success && curatedResult.error) {
     errors.push(`Curated: ${curatedResult.error}`);
   }
 
   // Sync On the Fence sheet
-  const onTheFenceResult = await syncOnTheFenceSheet();
+  const onTheFenceResult = await syncOnTheFenceSheet(timestamp);
   if (!onTheFenceResult.success && onTheFenceResult.error) {
     errors.push(`On the Fence: ${onTheFenceResult.error}`);
   }
@@ -398,12 +451,71 @@ export async function syncFromGoogleSheets(): Promise<FullSyncResult> {
     errors.push(`Steam Tracker: ${steamResult.error}`);
   }
 
+  // Delete festivals that weren't synced in this run (removed from spreadsheet)
+  // Only delete if we successfully synced at least one festival from each category
+  if (curatedResult.success && curatedResult.count > 0) {
+    const staleCurated = await Festival.find({
+      category: 'curated',
+      $or: [
+        { lastSyncedAt: { $lt: timestamp } },
+        { lastSyncedAt: { $exists: false } },
+        { lastSyncedAt: null }
+      ]
+    });
+    
+    if (staleCurated.length > 0) {
+      console.log(`\n🗑️ Removing ${staleCurated.length} stale curated festivals:`);
+      for (const fest of staleCurated) {
+        console.log(`   - ${fest.name} (last synced: ${fest.lastSyncedAt || 'never'})`);
+      }
+      
+      const deleteResult = await Festival.deleteMany({
+        category: 'curated',
+        $or: [
+          { lastSyncedAt: { $lt: timestamp } },
+          { lastSyncedAt: { $exists: false } },
+          { lastSyncedAt: null }
+        ]
+      });
+      deletedCount += deleteResult.deletedCount;
+    }
+  }
+
+  if (onTheFenceResult.success && onTheFenceResult.count > 0) {
+    const staleOnTheFence = await Festival.find({
+      category: 'on-the-fence',
+      $or: [
+        { lastSyncedAt: { $lt: timestamp } },
+        { lastSyncedAt: { $exists: false } },
+        { lastSyncedAt: null }
+      ]
+    });
+    
+    if (staleOnTheFence.length > 0) {
+      console.log(`\n🗑️ Removing ${staleOnTheFence.length} stale on-the-fence festivals:`);
+      for (const fest of staleOnTheFence) {
+        console.log(`   - ${fest.name} (last synced: ${fest.lastSyncedAt || 'never'})`);
+      }
+      
+      const deleteResult = await Festival.deleteMany({
+        category: 'on-the-fence',
+        $or: [
+          { lastSyncedAt: { $lt: timestamp } },
+          { lastSyncedAt: { $exists: false } },
+          { lastSyncedAt: null }
+        ]
+      });
+      deletedCount += deleteResult.deletedCount;
+    }
+  }
+
   // Log the sync operation
   const result: FullSyncResult = {
     curatedCount: curatedResult.count,
     onTheFenceCount: onTheFenceResult.count,
     steamFeaturesCount: steamResult.count,
     totalFestivals: curatedResult.count + onTheFenceResult.count,
+    deletedCount,
     errors,
     timestamp
   };
@@ -423,6 +535,7 @@ export async function syncFromGoogleSheets(): Promise<FullSyncResult> {
   console.log(`   On-the-fence festivals: ${result.onTheFenceCount}`);
   console.log(`   Steam features: ${result.steamFeaturesCount}`);
   console.log(`   Total festivals: ${result.totalFestivals}`);
+  console.log(`   Deleted stale entries: ${result.deletedCount}`);
   
   if (errors.length > 0) {
     console.log(`\n⚠️ Errors: ${errors.length}`);
