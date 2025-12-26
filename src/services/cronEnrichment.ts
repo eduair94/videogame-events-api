@@ -6,7 +6,7 @@
  * festivals with images and AI-generated content.
  */
 
-import fetch from 'node-fetch';
+// Use native fetch (Node.js 18+) for proper cache control support
 import { config } from '../config';
 import { Festival } from '../models';
 import { convertToAIEnrichment, getGameEventDetails } from './aiEnrichment';
@@ -57,21 +57,28 @@ async function searchGoogleImage(query: string): Promise<string | null> {
     return null;
   }
 
-  const url = `https://${config.rapidApi.googleSearchHost}/search`;
+  // Build URL with query parameters for GET request
+  const params = new URLSearchParams({
+    query: query,
+    gl: 'us',
+    lr: 'en',
+    num: '10',
+    start: '0',
+    sort: 'relevance',
+    useWebSearch: 'true',
+  });
+
+  const url = `https://${config.rapidApi.googleSearchHost}/google/search_image?${params.toString()}`;
 
   try {
     const response = await fetch(url, {
-      method: 'POST',
+      method: 'GET',
+      cache: 'no-store',
       headers: {
-        'Content-Type': 'application/json',
         'X-RapidAPI-Key': config.rapidApi.key,
         'X-RapidAPI-Host': config.rapidApi.googleSearchHost,
+        'Cache-Control': 'no-cache, no-store',
       },
-      body: JSON.stringify({
-        q: query,
-        num: 5,
-        type: 'image',
-      }),
     });
 
     if (!response.ok) {

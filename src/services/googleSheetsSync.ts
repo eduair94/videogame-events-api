@@ -10,7 +10,8 @@
  */
 
 import { parse } from 'csv-parse/sync';
-import fetch from 'node-fetch';
+// Use native fetch (Node.js 18+) instead of node-fetch to get proper cache control support
+// This is critical for preventing stale data in Vercel serverless functions
 import { Festival, SteamFeature, SyncLog } from '../models';
 
 // The spreadsheet ID from the URL
@@ -99,24 +100,36 @@ function buildExportUrl(spreadsheetId: string, gid: string): string {
 
 /**
  * Fetches CSV content from Google Sheets export URL
- * Adds cache-busting parameter to ensure we get the latest version
+ * Uses multiple cache-busting techniques to ensure we get the latest version:
+ * 1. URL parameter with timestamp
+ * 2. Random nonce parameter  
+ * 3. cache: 'no-store' to bypass Node.js 18+ native fetch caching
+ * 4. Cache-Control headers to prevent any caching layers
  */
 async function fetchSheetAsCSV(gid: string): Promise<string> {
-  // Add timestamp to bust any caching
-  const cacheBuster = Date.now();
-  const url = `${buildExportUrl(SPREADSHEET_ID, gid)}&_=${cacheBuster}`;
+  // Add multiple cache-busting parameters
+  const timestamp = Date.now();
+  const nonce = Math.random().toString(36).substring(2, 15);
+  const url = `${buildExportUrl(SPREADSHEET_ID, gid)}&_t=${timestamp}&_n=${nonce}`;
   
   console.log(`    🌐 Fetching URL: ${url}`);
   
   const response = await fetch(url, {
+    method: 'GET',
+    // Critical: 'no-store' bypasses Node.js 18+ native fetch caching
+    // This is the main fix for Vercel serverless stale data issues
+    cache: 'no-store',
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
       'Pragma': 'no-cache',
-      'Expires': '0'
+      'Expires': '0',
+      // Additional headers to prevent any edge/CDN caching
+      'CDN-Cache-Control': 'no-cache, no-store',
+      'Vercel-CDN-Cache-Control': 'no-cache, no-store'
     },
     redirect: 'follow'
-  });
+  } as RequestInit);
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);

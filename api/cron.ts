@@ -3,6 +3,9 @@ import { connectDatabase } from '../src/database';
 import { runPostSyncEnrichment } from '../src/services/cronEnrichment';
 import { syncFromGoogleSheets } from '../src/services/googleSheetsSync';
 
+// Frontend revalidation URL
+const FRONTEND_REVALIDATE_URL = 'https://videogame-festival-front.vercel.app/api/revalidate';
+
 // Cache the database connection
 let isConnected = false;
 
@@ -10,6 +13,38 @@ async function ensureDbConnection() {
   if (!isConnected) {
     await connectDatabase();
     isConnected = true;
+  }
+}
+
+/**
+ * Triggers frontend cache revalidation after sync
+ * This ensures the frontend displays the latest data
+ */
+async function triggerFrontendRevalidation(): Promise<{ success: boolean; message: string }> {
+  try {
+    console.log('\n🔄 Step 3: Triggering frontend revalidation...');
+    
+    const response = await fetch(FRONTEND_REVALIDATE_URL, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('   ✅ Frontend revalidation triggered successfully');
+      return { success: true, message: 'Revalidation triggered' };
+    } else {
+      const errorText = await response.text();
+      console.log(`   ⚠️ Frontend revalidation failed: HTTP ${response.status}`);
+      return { success: false, message: `HTTP ${response.status}: ${errorText}` };
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.log(`   ⚠️ Frontend revalidation error: ${message}`);
+    return { success: false, message };
   }
 }
 
@@ -48,6 +83,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       aiLimit: 3,     // Process up to 3 AI enrichments per cron run
     });
     
+    // Step 3: Trigger frontend revalidation to refresh cached data
+    const revalidationResult = await triggerFrontendRevalidation();
+    
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
     console.log(`\n✅ Cron job completed in ${duration}s`);
@@ -55,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`   Deleted: ${syncResult.deletedCount}`);
     console.log(`   Images enriched: ${enrichmentResult.images.updated}`);
     console.log(`   AI enriched: ${enrichmentResult.ai.enriched}`);
+    console.log(`   Frontend revalidated: ${revalidationResult.success}`);
     
     return res.status(200).json({
       success: true,
@@ -81,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             failed: enrichmentResult.ai.failed,
           }
         },
+        revalidation: revalidationResult,
         timestamp: syncResult.timestamp.toISOString()
       }
     });

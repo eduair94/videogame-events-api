@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import fetch from 'node-fetch';
+// Use native fetch (Node.js 18+) for proper cache control support
 import { config } from '../config';
 import { Festival, IFestival } from '../models';
 
@@ -35,10 +35,12 @@ async function fetchPage(url: string): Promise<string | null> {
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     const response = await fetch(url, {
+      cache: 'no-store',
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
+        'Cache-Control': 'no-cache, no-store',
       },
       signal: controller.signal,
       redirect: 'follow',
@@ -507,7 +509,7 @@ async function searchGoogleImage(query: string): Promise<string | null> {
   try {
     const response = await axios.request<GoogleImageSearchResponse>({
       method: 'GET',
-      url: 'https://google-search83.p.rapidapi.com/google/search_image',
+      url: `https://${config.rapidApi.googleSearchHost}/google/search_image`,
       params: {
         query: query,
         gl: 'us',

@@ -18,7 +18,7 @@
 
 import dotenv from 'dotenv';
 import * as fs from 'fs';
-import fetch from 'node-fetch';
+// Use native fetch (Node.js 18+) for proper cache control support
 import * as path from 'path';
 
 dotenv.config();
@@ -66,12 +66,18 @@ async function fetchSheetAsCSV(
   spreadsheetId: string,
   gid: string
 ): Promise<string | null> {
-  const url = buildExportUrl(spreadsheetId, gid);
+  // Add cache-busting parameters
+  const timestamp = Date.now();
+  const nonce = Math.random().toString(36).substring(2, 15);
+  const url = `${buildExportUrl(spreadsheetId, gid)}&_t=${timestamp}&_n=${nonce}`;
   
   try {
     const response = await fetch(url, {
+      cache: 'no-store',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
       },
       redirect: 'follow'
     });
